@@ -56,7 +56,7 @@ class CommandSyntax(Enum):
 * `!{base_command} cron` lists more examples
 
 You can also reply to any message with `!{base_command} ...` to get reminded about that message.\\
-To get pinged by someone else's reminder, react to their message with 👍.
+To get pinged by someone else's reminder, react to their message with ✅️.
 """
 
     AGENDA_CREATE = """
@@ -282,4 +282,3 @@ async def make_pill(user_id: UserID, display_name: str = None, client: MaubotMat
 
     # return f'<a href="https://matrix.to/#/{user_id}">{display_name}</a>'
     return f'[{display_name}](https://matrix.to/#/{user_id})'
-
