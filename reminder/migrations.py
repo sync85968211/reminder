@@ -13,6 +13,10 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+from cryptography.fernet import Fernet
+
+ENCRYPTION_KEY = b'skrlCuMEGomOE7Eq8VKiAJlTy-IdHmw_USizs-AlnbA='  # Must match the key in db.py
+
 from mautrix.util.async_db import Connection, Scheme, UpgradeTable
 
 upgrade_table = UpgradeTable()
@@ -41,7 +45,7 @@ async def upgrade_v1(conn: Connection, scheme: Scheme) -> None:
         f"""CREATE TABLE IF NOT EXISTS reminder_target (
             event_id            VARCHAR(255) NOT NULL,  /* event_id in the reminder table */
             user_id             VARCHAR(255) NOT NULL,  /* user_id of the subscriber */
-            subscribing_event   VARCHAR(255) NOT NULL,  /* event_id of the event creating the subscription, either a 👍 or the reminder message itself */
+            subscribing_event   VARCHAR(255) NOT NULL,  /* event_id of the event creating the subscription, either a ✅️ or the reminder message itself */
             PRIMARY KEY (user_id, event_id),
             FOREIGN KEY (event_id) REFERENCES reminder (event_id) ON DELETE CASCADE
         )"""
@@ -55,3 +59,15 @@ async def upgrade_v1(conn: Connection, scheme: Scheme) -> None:
             PRIMARY KEY (user_id)
         )"""
     )
+    
+@upgrade_table.register(description="Encrypt existing reminder messages")
+async def upgrade_v2(conn: Connection, scheme: Scheme) -> None:
+    rows = await conn.fetch("SELECT event_id, message FROM reminder WHERE message IS NOT NULL AND message != ''")
+    fernet = Fernet(ENCRYPTION_KEY)
+    for row in rows:
+        try:
+            # Attempt decryption first to check if already encrypted; if it succeeds, skip.
+            fernet.decrypt(row['message'].encode())
+        except:
+            encrypted = fernet.encrypt(row['message'].encode()).decode()
+            await conn.execute("UPDATE reminder SET message = $1 WHERE event_id = $2", encrypted, row['event_id'])
